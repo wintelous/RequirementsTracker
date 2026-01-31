@@ -2,6 +2,7 @@
   "name": "requirements-tracker",
   "version": "0.1.0",
   "description": "Local requirements tracking tool",
+  "author": "Matthew V. <scows-boil.26@icloud.com>",
   "main": "main.js",
   "private": true,
   "scripts": {
