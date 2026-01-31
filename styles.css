@@ -228,6 +228,11 @@ textarea:disabled {
   padding: 16px;
   box-shadow: 0 6px 18px var(--shadow);
   min-height: 80vh;
+  position: sticky;
+  top: calc(var(--toolbar-height, 72px) + 12px);
+  align-self: start;
+  max-height: calc(100vh - var(--toolbar-height, 72px) - 64px);
+  overflow: auto;
 }
 
 .splitter {
