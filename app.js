@@ -44,7 +44,7 @@ const dom = {
   closeCreateModal: document.getElementById("closeCreateModal"),
   createForm: document.getElementById("createForm"),
   create_display_code: document.getElementById("create_display_code"),
-  create_type_code: document.getElementById("create_type_code"),
+  create_type_id: document.getElementById("create_type_id"),
   create_num_path: document.getElementById("create_num_path"),
   create_parent_id: document.getElementById("create_parent_id"),
   create_status_id: document.getElementById("create_status_id"),
@@ -54,7 +54,7 @@ const dom = {
   createError: document.getElementById("createError"),
   createBtn: document.getElementById("createBtn"),
   display_code: document.getElementById("display_code"),
-  type_code: document.getElementById("type_code"),
+  type_id: document.getElementById("type_id"),
   num_path: document.getElementById("num_path"),
   parent_id: document.getElementById("parent_id"),
   status_id: document.getElementById("status_id"),
@@ -236,7 +236,7 @@ function renderNode(req, level) {
     openEditModal();
   };
 
-  const typeMeta = state.types.find((t) => t.type_code === req.type_code);
+  const typeMeta = state.types.find((t) => t.id === req.type_id);
   const dot = document.createElement("span");
   dot.className = "type-dot";
   dot.style.background = typeMeta?.color || "#9aa2b1";
@@ -309,7 +309,7 @@ function renderForm(req) {
   dom.editDisplayCode.textContent = getDisplayLabel(req);
   dom.editDbId.textContent = `#${req.id}`;
   dom.display_code.value = req.display_code || "";
-  dom.type_code.value = req.type_code || "";
+  dom.type_id.value = req.type_id || "";
   dom.num_path.value = req.num_path || "";
   dom.parent_id.value = req.parent_id ?? "";
   dom.status_id.value = req.status_id || "";
@@ -339,7 +339,7 @@ function renderView(req) {
 
 function updateFieldAccess() {
   const disabled = !state.override;
-  dom.type_code.disabled = disabled;
+  dom.type_id.disabled = disabled;
   dom.num_path.disabled = disabled;
   dom.parent_id.disabled = disabled;
   if (dom.create_num_path) {
@@ -419,12 +419,12 @@ function populateSelects() {
     dom.status_id.appendChild(option);
   });
 
-  dom.type_code.innerHTML = "";
+  dom.type_id.innerHTML = "";
   state.types.forEach((type) => {
     const option = document.createElement("option");
-    option.value = type.type_code;
+    option.value = type.id;
     option.textContent = `${type.type_code} - ${type.name}`;
-    dom.type_code.appendChild(option);
+    dom.type_id.appendChild(option);
   });
 
   dom.parent_id.innerHTML = "";
@@ -441,7 +441,7 @@ function populateSelects() {
   });
 
   dom.create_status_id.innerHTML = dom.status_id.innerHTML;
-  dom.create_type_code.innerHTML = dom.type_code.innerHTML;
+  dom.create_type_id.innerHTML = dom.type_id.innerHTML;
   dom.create_parent_id.innerHTML = dom.parent_id.innerHTML;
 }
 
@@ -727,7 +727,7 @@ function loadAll() {
 function getFormPayload() {
   const payload = {
     display_code: dom.display_code.value.trim() || null,
-    type_code: dom.type_code.value,
+    type_id: Number(dom.type_id.value),
     num_path: dom.num_path.value.trim(),
     parent_id: dom.parent_id.value ? Number(dom.parent_id.value) : null,
     status_id: Number(dom.status_id.value),
@@ -737,7 +737,7 @@ function getFormPayload() {
     override: state.override,
   };
   if (!state.override) {
-    delete payload.type_code;
+    delete payload.type_id;
     delete payload.num_path;
     delete payload.parent_id;
   }
@@ -751,10 +751,10 @@ function openCreateModal(parentId) {
   dom.create_title.value = "";
   dom.create_description_md.value = "";
   dom.create_rationale_md.value = "";
-  const defaultType = parentId
-    ? state.reqById.get(parentId).type_code
-    : state.types[0]?.type_code || "F";
-  dom.create_type_code.value = defaultType;
+  const defaultTypeId = parentId
+    ? state.reqById.get(parentId).type_id
+    : state.types[0]?.id || "";
+  dom.create_type_id.value = defaultTypeId;
   dom.create_parent_id.value = parentId ?? "";
   dom.create_status_id.value = state.statuses[0]?.id || "";
   dom.create_num_path.disabled = !state.override;
@@ -779,7 +779,7 @@ function submitCreateForm(e) {
   }
   const payload = {
     display_code: dom.create_display_code.value.trim() || null,
-    type_code: dom.create_type_code.value,
+    type_id: Number(dom.create_type_id.value),
     num_path: dom.create_num_path.value.trim() || undefined,
     parent_id: dom.create_parent_id.value ? Number(dom.create_parent_id.value) : null,
     status_id: Number(dom.create_status_id.value || state.statuses[0]?.id || 1),

@@ -102,6 +102,47 @@ function tableExists(db, name) {
   return !!row;
 }
 
+function columnExists(db, table, column) {
+  const rows = db.prepare(`PRAGMA table_info(${table});`).all();
+  return rows.some((row) => row.name === column);
+}
+
+function migrateRequirementsTable(db) {
+  if (!tableExists(db, "requirements")) return;
+  if (columnExists(db, "requirements", "type_id")) return;
+  if (!columnExists(db, "requirements", "type_code")) return;
+  db.prepare("ALTER TABLE requirements RENAME TO requirements_old;").run();
+  db.exec(
+    "CREATE TABLE requirements (" +
+      "id INTEGER PRIMARY KEY, " +
+      "type_id INTEGER NOT NULL, " +
+      "num_path TEXT NOT NULL, " +
+      "display_code TEXT, " +
+      "title TEXT NOT NULL, " +
+      "description_md TEXT NOT NULL, " +
+      "rationale_md TEXT, " +
+      "parent_id INTEGER, " +
+      "order_index INTEGER NOT NULL DEFAULT 0, " +
+      "status_id INTEGER NOT NULL, " +
+      "source TEXT, " +
+      "created_at TEXT NOT NULL, " +
+      "updated_at TEXT NOT NULL, " +
+      "FOREIGN KEY (parent_id) REFERENCES requirements(id) ON DELETE CASCADE, " +
+      "FOREIGN KEY (status_id) REFERENCES statuses(id), " +
+      "FOREIGN KEY (type_id) REFERENCES types(id)" +
+      ");"
+  );
+  db.exec(
+    "INSERT INTO requirements (id, type_id, num_path, display_code, title, description_md, rationale_md, parent_id, order_index, status_id, source, created_at, updated_at) " +
+      "SELECT r.id, t.id, r.num_path, r.display_code, r.title, r.description_md, r.rationale_md, r.parent_id, r.order_index, r.status_id, r.source, r.created_at, r.updated_at " +
+      "FROM requirements_old r JOIN types t ON t.type_code = r.type_code;"
+  );
+  db.exec("DROP TABLE requirements_old;");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_req_type_num ON requirements(type_id, num_path);");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_req_parent_order ON requirements(parent_id, order_index);");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_req_status ON requirements(status_id);");
+}
+
 function migrateDb(db) {
   if (tableExists(db, "settings") && !tableExists(db, "db_version")) {
     db.prepare("ALTER TABLE settings RENAME TO db_version;").run();
@@ -109,6 +150,7 @@ function migrateDb(db) {
   if (!tableExists(db, "db_version")) {
     db.prepare("CREATE TABLE IF NOT EXISTS db_version (key TEXT PRIMARY KEY, value TEXT);").run();
   }
+  migrateRequirementsTable(db);
   ensureDbVersion(db);
 }
 
@@ -117,10 +159,10 @@ function ensureDbVersion(db) {
     .prepare("SELECT value FROM db_version WHERE key = 'db_version';")
     .get();
   if (!row) {
-    db.prepare("INSERT INTO db_version (key, value) VALUES ('db_version', '1.0');").run();
+    db.prepare("INSERT INTO db_version (key, value) VALUES ('db_version', '1.1');").run();
     return true;
   }
-  return row.value === "1.0";
+  return row.value === "1.1";
 }
 
 function checkDbVersion(db) {
@@ -129,7 +171,7 @@ function checkDbVersion(db) {
     .prepare("SELECT value FROM db_version WHERE key = 'db_version';")
     .get();
   if (!row) return false;
-  return row.value === "1.0";
+  return row.value === "1.1";
 }
 
 function getConfigPath() {
@@ -321,8 +363,12 @@ let currentDbPath = "";
       if (req.method === "GET" && parsed.pathname === "/api/requirements") {
         const rows = db
           .prepare(
-            "SELECT r.*, s.name AS status_name, s.color AS status_color FROM requirements r " +
-              "LEFT JOIN statuses s ON r.status_id = s.id ORDER BY r.parent_id, r.order_index;"
+            "SELECT r.*, s.name AS status_name, s.color AS status_color, " +
+              "t.type_code AS type_code, t.name AS type_name " +
+              "FROM requirements r " +
+              "LEFT JOIN statuses s ON r.status_id = s.id " +
+              "LEFT JOIN types t ON r.type_id = t.id " +
+              "ORDER BY r.parent_id, r.order_index;"
           )
           .all();
         return json(res, { requirements: rows });
@@ -360,8 +406,12 @@ let currentDbPath = "";
         if (!version) return json(res, { error: "version is required." }, 400);
         const rows = db
           .prepare(
-            "SELECT r.*, s.name AS status_name, s.color AS status_color FROM requirements r " +
-              "LEFT JOIN statuses s ON r.status_id = s.id ORDER BY r.parent_id, r.order_index;"
+            "SELECT r.*, s.name AS status_name, s.color AS status_color, " +
+              "t.type_code AS type_code, t.name AS type_name " +
+              "FROM requirements r " +
+              "LEFT JOIN statuses s ON r.status_id = s.id " +
+              "LEFT JOIN types t ON r.type_id = t.id " +
+              "ORDER BY r.parent_id, r.order_index;"
           )
           .all();
         const html = buildExportHtml(rows, version, theme);
@@ -379,19 +429,19 @@ let currentDbPath = "";
       if (req.method === "POST" && parsed.pathname === "/api/requirements") {
         const body = await parseJson(req);
         const override = !!body.override;
-        if (!body.type_code) return json(res, { error: "type_code is required." }, 400);
+        if (!body.type_id) return json(res, { error: "type_id is required." }, 400);
         let numPath = body.num_path;
         if (!numPath) {
-          numPath = computeNextNumPath(db, body.type_code, body.parent_id);
+          numPath = computeNextNumPath(db, body.type_id, body.parent_id);
         } else if (!override) {
           return json(res, { error: "Override mode required to set num_path." }, 403);
         }
         const stmt = db.prepare(
-          "INSERT INTO requirements (type_code, num_path, display_code, title, description_md, rationale_md, parent_id, order_index, status_id, source, created_at, updated_at) " +
+          "INSERT INTO requirements (type_id, num_path, display_code, title, description_md, rationale_md, parent_id, order_index, status_id, source, created_at, updated_at) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         );
         const info = stmt.run(
-          body.type_code,
+          body.type_id,
           numPath,
           body.display_code || null,
           body.title || "",
@@ -537,9 +587,9 @@ let currentDbPath = "";
           .get(id);
         if (!reqRow) return json(res, { error: "Requirement not found." }, 400);
         const updates = {};
-        const protectedFields = new Set(["type_code", "num_path", "parent_id"]);
+        const protectedFields = new Set(["type_id", "num_path", "parent_id"]);
         [
-          "type_code",
+          "type_id",
           "num_path",
           "display_code",
           "title",
@@ -622,24 +672,12 @@ let currentDbPath = "";
           if (field in body) updates[field] = body[field];
         });
         if (Object.keys(updates).length) {
-          const old = db
-            .prepare("SELECT type_code FROM types WHERE id = ?;")
-            .get(id);
           const keys = Object.keys(updates);
           const setClause = keys.map((k) => `${k} = ?`).join(", ");
           db.prepare(`UPDATE types SET ${setClause} WHERE id = ?;`).run(
             ...keys.map((k) => updates[k]),
             id
           );
-          if (
-            old &&
-            updates.type_code &&
-            updates.type_code !== old.type_code
-          ) {
-            db.prepare(
-              "UPDATE requirements SET type_code = ?, updated_at = ? WHERE type_code = ?;"
-            ).run(updates.type_code, utcNow(), old.type_code);
-          }
         }
         return json(res, { ok: true });
       }
@@ -661,13 +699,13 @@ let currentDbPath = "";
         const body = await parseJson(req);
         if (!body.override) return json(res, { error: "Override required." }, 403);
         const id = Number(parsed.pathname.split("/")[3]);
-        const typeCode = db
-          .prepare("SELECT type_code FROM types WHERE id = ?;")
+        const typeRow = db
+          .prepare("SELECT id FROM types WHERE id = ?;")
           .get(id);
-        if (!typeCode) return json(res, { error: "Type not found." }, 400);
+        if (!typeRow) return json(res, { error: "Type not found." }, 400);
         const used = db
-          .prepare("SELECT COUNT(*) AS cnt FROM requirements WHERE type_code = ?;")
-          .get(typeCode.type_code).cnt;
+          .prepare("SELECT COUNT(*) AS cnt FROM requirements WHERE type_id = ?;")
+          .get(id).cnt;
         if (used) return json(res, { error: "Type is in use." }, 400);
         db.prepare("DELETE FROM types WHERE id = ?;").run(id);
         return json(res, { ok: true });
@@ -686,13 +724,13 @@ let currentDbPath = "";
   });
 }
 
-function computeNextNumPath(db, typeCode, parentId) {
+function computeNextNumPath(db, typeId, parentId) {
   let rows;
   let base = "";
   if (parentId == null) {
     rows = db
-      .prepare("SELECT num_path FROM requirements WHERE parent_id IS NULL AND type_code = ?;")
-      .all(typeCode);
+      .prepare("SELECT num_path FROM requirements WHERE parent_id IS NULL AND type_id = ?;")
+      .all(typeId);
   } else {
     const parent = db
       .prepare("SELECT num_path FROM requirements WHERE id = ?;")
@@ -700,8 +738,8 @@ function computeNextNumPath(db, typeCode, parentId) {
     if (!parent) throw new Error("Parent not found.");
     base = parent.num_path;
     rows = db
-      .prepare("SELECT num_path FROM requirements WHERE parent_id = ? AND type_code = ?;")
-      .all(parentId, typeCode);
+      .prepare("SELECT num_path FROM requirements WHERE parent_id = ? AND type_id = ?;")
+      .all(parentId, typeId);
   }
   let maxSeg = -1;
   rows.forEach((r) => {

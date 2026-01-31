@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS types (
 
 CREATE TABLE IF NOT EXISTS requirements (
   id INTEGER PRIMARY KEY,
-  type_code TEXT NOT NULL,
+  type_id INTEGER NOT NULL,
   num_path TEXT NOT NULL,
   display_code TEXT,
   title TEXT NOT NULL,
@@ -31,11 +31,12 @@ CREATE TABLE IF NOT EXISTS requirements (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (parent_id) REFERENCES requirements(id) ON DELETE CASCADE,
-  FOREIGN KEY (status_id) REFERENCES statuses(id)
+  FOREIGN KEY (status_id) REFERENCES statuses(id),
+  FOREIGN KEY (type_id) REFERENCES types(id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_req_type_num
-  ON requirements(type_code, num_path);
+  ON requirements(type_id, num_path);
 
 CREATE INDEX IF NOT EXISTS idx_req_parent_order
   ON requirements(parent_id, order_index);

@@ -1,6 +1,6 @@
 {
   "name": "requirements-tracker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local requirements tracking tool",
   "author": "Matthew V. <scows-boil.26@icloud.com>",
   "main": "main.js",

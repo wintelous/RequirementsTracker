@@ -31,6 +31,12 @@ Override mode is required to edit type, number path, or parent.
 ## Settings Storage
 - Theme is stored at `~/.config/ReqTracker/settings.json`.
 
+## Database Migration (v1.1)
+If you have older `.ReqDB` files (v1.0), run:
+```bash
+python3 scripts/migrate_db_1_1.py /path/to/file.ReqDB
+```
+
 ## Project Files
 - App entry: `main.js`
 - Backend: `server.js`
