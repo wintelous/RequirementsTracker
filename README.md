@@ -38,7 +38,14 @@ Override mode is required to edit type, number path, or parent.
 - DB schema: `schema.sql`
 
 ## Screenshots
-- `_images/req_example1.png` — Example 1 loaded (mobile app workflow), showing tree view, details pane, and top toolbar.
-- `_images/req_example2.png` — Example 2 loaded (SBC platform), showing deeper hierarchy and status badges.
-- `_images/req_edit.png` — Requirement edit dialog with markdown description/rationale and live previews.
-- `_images/settings.png` — Settings dialog.
+![Example 1](https://github.com/wintelous/RequirementsTracker/blob/main/_images/req_example1.png?raw=true)
+- Example 1 loaded (mobile app workflow), showing tree view, details pane, and top toolbar.
+
+![Example 2](https://github.com/wintelous/RequirementsTracker/blob/main/_images/req_example2.png?raw=true)
+- Example 2 loaded (SBC platform), showing deeper hierarchy and status badges.
+
+![Edit Dialog](https://github.com/wintelous/RequirementsTracker/blob/main/_images/req_edit.png?raw=true)
+- Requirement edit dialog with markdown description/rationale and live previews.
+
+![Settings](https://github.com/wintelous/RequirementsTracker/blob/main/_images/settings.png?raw=true)
+- Settings dialog.
