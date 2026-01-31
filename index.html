@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Requirements Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <button id="expandAllBtn" type="button">Expand All</button>
+        <button id="collapseAllBtn" type="button">Collapse All</button>
+        <button id="exportBtn" type="button">Snapshot</button>
+      </div>
+      <div class="toolbar-center">
+        <div class="version-field">
+          <span>Requirements v.</span>
+          <input id="reqVersion" type="text" placeholder="0.1.0" />
+          <button id="reqVersionSave" type="button">Update</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <div class="toolbar-file">
+          <button id="newDbBtn" type="button">New</button>
+          <button id="loadDbBtn" type="button">Load</button>
+          <button id="saveDbBtn" type="button" disabled>Save</button>
+          <button id="saveAsDbBtn" type="button">Save As...</button>
+        </div>
+        <div class="toolbar-settings">
+          <button id="settingsBtn" type="button">Settings</button>
+          <label class="override-toggle">
+            <input id="overrideMode" type="checkbox" />
+            Override mode
+          </label>
+        </div>
+      </div>
+    </header>
+    <input id="loadDbInput" type="file" accept=".ReqDB,.reqdb" class="hidden" />
+
+    <div id="overrideBanner" class="override-banner hidden">
+      In this mode the requirements references might change. Use it only for project
+      planning. DO NOT use it for ongoing projects as this might break requirements
+      traceability.
+    </div>
+
+    <main class="layout" id="layout">
+      <section class="tree-pane">
+        <div class="pane-header">
+          <h2>Requirements</h2>
+          <div class="pane-actions">
+            <button id="closeDbBtn" type="button">Close DB</button>
+            <button id="newRootBtn" type="button">New Root</button>
+          </div>
+        </div>
+        <div id="tree" class="tree"></div>
+      </section>
+      <div id="splitter" class="splitter" role="separator" aria-orientation="vertical"></div>
+      <section class="detail-pane">
+        <div class="pane-header">
+          <h2>Details</h2>
+        </div>
+
+        <div id="detailEmpty" class="empty-state">
+          Select a requirement to view or edit it.
+        </div>
+
+        <div id="detailView" class="detail-view hidden">
+          <div class="view-header">
+            <div id="displayCode" class="code-display"></div>
+            <div id="dbId" class="db-id"></div>
+          </div>
+          <div class="view-meta" id="viewMeta"></div>
+          <h3 id="viewTitle"></h3>
+          <h4>Description</h4>
+          <div class="preview" id="viewDescription"></div>
+          <h4>Rationale</h4>
+          <div class="preview" id="viewRationale"></div>
+          <div class="view-actions">
+            <button id="editBtn" type="button" disabled>Edit</button>
+            <button id="newChildBtn" type="button">New Child</button>
+            <button id="newSiblingBtn" type="button">New Sibling</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="editModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Requirement</h3>
+          <button id="closeEditModal" type="button">Close</button>
+        </div>
+        <form id="detailForm" class="detail-form">
+          <div class="form-row">
+            <label>Display</label>
+            <div id="editDisplayCode" class="code-display"></div>
+            <div id="editDbId" class="db-id"></div>
+          </div>
+
+          <div class="form-row">
+            <label for="display_code">Display code</label>
+            <input id="display_code" type="text" />
+          </div>
+
+          <div class="form-row">
+            <label for="type_code">Type</label>
+            <select id="type_code"></select>
+          </div>
+
+          <div class="form-row">
+            <label for="num_path">Number path</label>
+            <input id="num_path" type="text" />
+          </div>
+
+          <div class="form-row">
+            <label for="parent_id">Parent</label>
+            <select id="parent_id"></select>
+          </div>
+
+          <div class="form-row">
+            <label for="status_id">Status</label>
+            <select id="status_id"></select>
+          </div>
+
+          <div class="form-row">
+            <label for="title">Title</label>
+            <input id="title" type="text" />
+          </div>
+
+          <div class="form-row">
+            <label for="description_md">Description (Markdown)</label>
+            <textarea id="description_md" rows="6"></textarea>
+            <div class="preview" id="descPreview"></div>
+            <div class="suggestions" id="descSuggestions"></div>
+          </div>
+
+          <div class="form-row">
+            <label for="rationale_md">Rationale (Markdown)</label>
+            <textarea id="rationale_md" rows="4"></textarea>
+            <div class="preview" id="ratPreview"></div>
+            <div class="suggestions" id="ratSuggestions"></div>
+          </div>
+
+          <div class="form-actions">
+            <button id="saveBtn" type="submit">Save</button>
+            <button id="deleteBtn" type="button" class="danger">Delete</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="createModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create Requirement</h3>
+        </div>
+        <form id="createForm" class="detail-form">
+          <div class="form-row">
+            <label for="create_display_code">Display code</label>
+            <input id="create_display_code" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="create_type_code">Type</label>
+            <select id="create_type_code"></select>
+          </div>
+          <div class="form-row">
+            <label for="create_num_path">Number path</label>
+            <input id="create_num_path" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="create_parent_id">Parent</label>
+            <select id="create_parent_id"></select>
+          </div>
+          <div class="form-row">
+            <label for="create_status_id">Status</label>
+            <select id="create_status_id"></select>
+          </div>
+          <div class="form-row">
+            <label for="create_title">Title</label>
+            <input id="create_title" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="create_description_md">Description (Markdown)</label>
+            <textarea id="create_description_md" rows="6"></textarea>
+          </div>
+          <div class="form-row">
+            <label for="create_rationale_md">Rationale (Markdown)</label>
+            <textarea id="create_rationale_md" rows="4"></textarea>
+          </div>
+          <div class="form-actions">
+            <button id="createBtn" type="submit">Create</button>
+            <button id="closeCreateModal" type="button">Close</button>
+          </div>
+          <div id="createError" class="form-error hidden" role="alert"></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button id="closeSettingsModal" type="button">Close</button>
+        </div>
+        <section class="admin-section">
+          <h4>Statuses</h4>
+          <div id="statusesList" class="admin-list"></div>
+          <button id="addStatusBtn" type="button">Add Status</button>
+        </section>
+        <section class="admin-section">
+          <h4>Types</h4>
+          <div id="typesList" class="admin-list"></div>
+          <button id="addTypeBtn" type="button">Add Type (Override)</button>
+        </section>
+        <section class="admin-section">
+          <h4>Appearance</h4>
+          <div class="admin-list">
+            <label class="override-toggle">
+              <input id="themeToggle" type="checkbox" />
+              Dark mode
+            </label>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="snapshotModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Snapshot</h3>
+        </div>
+        <form id="snapshotForm" class="detail-form">
+          <div class="form-row">
+            <label for="snapshot_version">Snapshot version</label>
+            <input id="snapshot_version" type="text" placeholder="0.1.0" />
+          </div>
+          <div class="form-row">
+            <label class="override-toggle">
+              <input id="snapshot_theme" type="checkbox" />
+              Dark mode
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="snapshotBtn" type="submit">Create</button>
+            <button id="closeSnapshotModal" type="button">Close</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="statusModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="statusModalTitle">Edit Status</h3>
+        </div>
+        <form id="statusForm" class="detail-form">
+          <div class="form-row">
+            <label for="status_name">Name</label>
+            <input id="status_name" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="status_color">Color (hex)</label>
+            <input id="status_color" type="text" placeholder="#7b8cff" />
+          </div>
+          <div class="form-row">
+            <label for="status_order">Order index</label>
+            <input id="status_order" type="number" min="0" />
+          </div>
+          <div class="form-actions">
+            <button id="saveStatusBtn" type="submit">Save</button>
+            <button id="closeStatusModal" type="button">Close</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="typeModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="typeModalTitle">Edit Type</h3>
+        </div>
+        <form id="typeForm" class="detail-form">
+          <div class="form-row">
+            <label for="type_code_input">Type code</label>
+            <input id="type_code_input" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="type_name">Name</label>
+            <input id="type_name" type="text" />
+          </div>
+          <div class="form-row">
+            <label for="type_color">Color (hex)</label>
+            <input id="type_color" type="text" placeholder="#888888" />
+          </div>
+          <div class="form-row">
+            <label for="type_icon">Icon</label>
+            <input id="type_icon" type="text" placeholder="tag" />
+          </div>
+          <div class="form-row">
+            <label for="type_order">Order index</label>
+            <input id="type_order" type="number" min="0" />
+          </div>
+          <div class="form-actions">
+            <button id="saveTypeBtn" type="submit">Save</button>
+            <button id="closeTypeModal" type="button">Close</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Confirm</h3>
+        </div>
+        <div id="confirmMessage" class="modal-message"></div>
+        <div class="form-actions">
+          <button id="confirmOk" type="button">OK</button>
+          <button id="confirmCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="status-bar">
+      <div id="statusDbPath" class="status-item"></div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
