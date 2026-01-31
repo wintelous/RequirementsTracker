@@ -204,6 +204,47 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceReferences(text, mappings) {
+  if (!text) return text;
+  let next = text;
+  mappings.forEach((pair) => {
+    const pattern = new RegExp(
+      `(?<![A-Z0-9.])${escapeRegExp(pair.old)}(?![0-9.])`,
+      "g"
+    );
+    next = next.replace(pattern, pair.next);
+  });
+  return next;
+}
+
+function updateRequirementReferences(db, typeId, oldCode, newCode) {
+  const owned = db
+    .prepare("SELECT num_path FROM requirements WHERE type_id = ?;")
+    .all(typeId);
+  if (!owned.length) return;
+  const mappings = owned.map((row) => ({
+    old: `${oldCode}${row.num_path}`,
+    next: `${newCode}${row.num_path}`,
+  }));
+  const rows = db
+    .prepare("SELECT id, description_md, rationale_md FROM requirements;")
+    .all();
+  const stmt = db.prepare(
+    "UPDATE requirements SET description_md = ?, rationale_md = ?, updated_at = ? WHERE id = ?;"
+  );
+  rows.forEach((row) => {
+    const nextDesc = replaceReferences(row.description_md, mappings);
+    const nextRat = replaceReferences(row.rationale_md, mappings);
+    if (nextDesc !== row.description_md || nextRat !== row.rationale_md) {
+      stmt.run(nextDesc, nextRat, utcNow(), row.id);
+    }
+  });
+}
+
 function buildExportHtml(rows, version, theme) {
   const reqs = rows.map((r) => ({ ...r }));
   const code = (r) => `${r.type_code}${r.num_path}`;
@@ -672,12 +713,22 @@ let currentDbPath = "";
           if (field in body) updates[field] = body[field];
         });
         if (Object.keys(updates).length) {
+          const oldType = db
+            .prepare("SELECT type_code FROM types WHERE id = ?;")
+            .get(id);
           const keys = Object.keys(updates);
           const setClause = keys.map((k) => `${k} = ?`).join(", ");
           db.prepare(`UPDATE types SET ${setClause} WHERE id = ?;`).run(
             ...keys.map((k) => updates[k]),
             id
           );
+          if (
+            oldType &&
+            updates.type_code &&
+            updates.type_code !== oldType.type_code
+          ) {
+            updateRequirementReferences(db, id, oldType.type_code, updates.type_code);
+          }
         }
         return json(res, { ok: true });
       }
